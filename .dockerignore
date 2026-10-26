@@ -1,0 +1,70 @@
+# Never include credentials, local configuration, or private keys in build context
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+**/*.env
+.secrets/
+secrets/
+.aws/
+.ssh/
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+# Version control and local development environments
+.git/
+.hg/
+.svn/
+.venv/
+venv/
+env/
+ENV/
+.idea/
+.vscode/
+
+# Python bytecode and tooling caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Runtime data, logs, local databases, and user uploads
+logs/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+uploads/
+tmp/
+temp/
+
+# Downloaded models and caches
+.cache/
+cache/
+huggingface/
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+
+# Build output and OS artifacts
+build/
+dist/
+*.egg-info/
+.DS_Store
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; media-src https://d8j0ntlcm91z4.cloudfront.net; img-src 'self' data:; connect-src 'self'"
+    >
+    <meta name="referrer" content="no-referrer">
+    <meta
+      name="description"
+      content="Ask ClimaScope AI questions about climate research and get evidence-grounded answers."
+    >
+    <meta name="theme-color" content="#0a0d12">
+    <title>ClimaScope AI — Climate research, made clear</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=block"
+      rel="stylesheet"
+    >
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/index.js" defer></script>
+  </head>
+  <body>
+    <div class="stage">
+      <video
+        class="stage-video"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="auto"
+        aria-hidden="true"
+        referrerpolicy="no-referrer"
+      >
+        <source
+          src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260826_124724_bc041163-d651-425f-aea3-2acc1efc2c96.mp4"
+          type="video/mp4"
+        >
+      </video>
+      <div class="scene-wash" aria-hidden="true"></div>
+
+      <div class="app-frame">
+        <header class="topbar">
+          <a class="brand" href="/" aria-label="ClimaScope AI home">
+            <svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true">
+              <circle cx="18" cy="18" r="17" fill="#9C86CE"></circle>
+              <path
+                d="M10.3 21.3c.3-5.6 5.6-10.1 13.2-10.8-.6 7.6-5.1 12.9-10.8 13.2m-.4-.1c2.3-3.3 5.2-6.2 8.5-8.5"
+                fill="none"
+                stroke="#fff"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.7"
+              ></path>
+              <circle cx="24.5" cy="24.5" r="3.1" fill="#151519"></circle>
+            </svg>
+            <span>ClimaScope <b>AI</b></span>
+          </a>
+
+          <div class="topbar-actions">
+            <span class="research-status">
+              <span class="status-dot"></span>
+              Climate research assistant
+            </span>
+            <div class="account" id="account-controls" hidden>
+              <span class="account-name" id="account-name"></span>
+              <button class="logout-button" id="logout-button" type="button">Sign out</button>
+            </div>
+          </div>
+        </header>
+
+        <main class="auth-view" id="auth-view">
+          <section class="auth-intro" aria-labelledby="auth-heading">
+            <span class="eyebrow"><span class="eyebrow-line"></span> CLIMATE RESEARCH, MADE CLEAR</span>
+            <h1 id="auth-heading">Understand our changing climate.</h1>
+            <p>
+              Ask questions. Explore the evidence. Get clear answers grounded in
+              indexed climate research.
+            </p>
+            <div class="trust-note">
+              <svg viewBox="0 0 18 18" aria-hidden="true">
+                <path d="M9 1.5 15 4v4.2c0 3.7-2.5 6.7-6 8.3-3.5-1.6-6-4.6-6-8.3V4l6-2.5Z" fill="none" stroke="currentColor" stroke-width="1.35"></path>
+                <path d="m6.1 8.8 1.8 1.8 4-4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.35"></path>
+              </svg>
+              Answers stay grounded in the source material
+            </div>
+          </section>
+
+          <section class="auth-card" aria-label="Sign in or create an account">
+            <div class="auth-tabs" role="tablist" aria-label="Account access">
+              <button
+                class="auth-tab is-active"
+                id="login-tab"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                aria-controls="auth-form"
+                data-mode="login"
+              >Sign in</button>
+              <button
+                class="auth-tab"
+                id="register-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="auth-form"
+                data-mode="register"
+              >Create account</button>
+            </div>
+
+            <div class="auth-card-heading">
+              <h2 id="form-heading">Welcome back</h2>
+              <p id="form-subheading">Sign in to continue to ClimaScope AI.</p>
+            </div>
+
+            <form id="auth-form" method="post" action="/api/v1/auth/login" novalidate>
+              <label class="field" id="name-field" hidden>
+                <span>Full name</span>
+                <input
+                  id="full-name"
+                  name="full_name"
+                  type="text"
+                  maxlength="100"
+                  autocomplete="name"
+                  placeholder="Your name"
+                  disabled
+                >
+              </label>
+
+              <label class="field">
+                <span>Email address</span>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  minlength="3"
+                  maxlength="320"
+                  autocomplete="email"
+                  inputmode="email"
+                  placeholder="you@example.com"
+                  required
+                >
+              </label>
+
+              <label class="field">
+                <span>Password</span>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  minlength="8"
+                  maxlength="128"
+                  autocomplete="current-password"
+                  placeholder="Enter your password"
+                  required
+                >
+                <small class="field-hint" id="password-hint" hidden>Use at least 8 characters.</small>
+              </label>
+
+              <p class="form-message" id="auth-message" role="alert" aria-live="polite" hidden></p>
+              <button class="primary-button auth-submit" id="auth-submit" type="submit">
+                <span id="auth-submit-label">Sign in</span>
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M3 8h9m-4-4 4 4-4 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+                </svg>
+              </button>
+            </form>
+            <p class="privacy-note">Your password is sent only to this application over its API.</p>
+          </section>
+        </main>
+
+        <main class="chat-view" id="chat-view" hidden>
+          <section class="chat-shell" aria-label="Climate research chat">
+            <div class="chat-heading" id="chat-heading">
+              <span class="eyebrow"><span class="eyebrow-line"></span> GROUNDED IN CLIMATE RESEARCH</span>
+              <h1>What would you like to understand?</h1>
+              <p>Ask about climate findings in the indexed research. Answers are checked against the available sources.</p>
+            </div>
+
+            <div class="conversation" id="conversation" aria-live="polite" aria-label="Conversation">
+              <div class="welcome-panel" id="welcome-panel">
+                <span class="welcome-mark" aria-hidden="true">
+                  <svg viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r="17" fill="#9C86CE"></circle>
+                    <path d="M10.3 21.3c.3-5.6 5.6-10.1 13.2-10.8-.6 7.6-5.1 12.9-10.8 13.2m-.4-.1c2.3-3.3 5.2-6.2 8.5-8.5" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"></path>
+                    <circle cx="24.5" cy="24.5" r="3.1" fill="#151519"></circle>
+                  </svg>
+                </span>
+                <p class="welcome-title">A clearer view of the evidence.</p>
+                <p class="welcome-copy">Start with a question about climate science, impacts, or the research in our indexed sources.</p>
+                <div class="suggestions" aria-label="Suggested questions">
+                  <button class="suggestion" type="button" data-question="What do the sources say about observed global temperature changes?">Observed temperature changes <span aria-hidden="true">↗</span></button>
+                  <button class="suggestion" type="button" data-question="What evidence do the sources provide about sea level rise?">Evidence on sea level rise <span aria-hidden="true">↗</span></button>
+                  <button class="suggestion" type="button" data-question="Which climate impacts are discussed in the indexed research?">Climate impacts in the research <span aria-hidden="true">↗</span></button>
+                </div>
+              </div>
+            </div>
+
+            <form class="composer" id="chat-form" method="post" action="/api/v1/model/stream">
+              <label class="visually-hidden" for="question">Ask a question about climate research</label>
+              <textarea
+                id="question"
+                name="query"
+                rows="1"
+                maxlength="4000"
+                placeholder="Ask a question about climate research..."
+                required
+              ></textarea>
+              <div class="composer-footer">
+                <span class="composer-hint">Answers are generated from indexed sources</span>
+                <button class="send-button" id="send-button" type="submit" aria-label="Send question" disabled>
+                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M8 13V3m-4 4 4-4 4 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7"></path>
+                  </svg>
+                </button>
+              </div>
+            </form>
+            <p class="chat-disclaimer">ClimaScope AI can make mistakes. Check important information against the cited research.</p>
+          </section>
+        </main>
+      </div>
+    </div>
+  </body>
+</html>
