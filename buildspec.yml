@@ -1,38 +1,32 @@
-
 version: 0.2
 
 env:
-  shell: bash
+  variables:
+    AWS_DEFAULT_REGION: "eu-north-1"
+    EC2_INSTANCE_ID: "i-0fc77e77e0999cbb9"
 
 phases:
   install:
     runtime-versions:
       python: 3.12
     commands:
+      - aws --version
       - python --version
-      - python -m pip install --upgrade pip
+
+  pre_build:
+    commands:
+      - echo "Validating project files..."
+      - test -f app/main.py
+      - test -f requirements.txt
+      - test -f .env.example
 
   build:
     commands:
-      - echo "Validating dependencies and Python syntax"
-      - python -m pip install -r requirements.txt
-      - python -m compileall -q app
-
-  post_build:
-    commands:
       - |
-        set -euo pipefail
-
-        echo "Starting ClimaScope AI deployment through SSM"
-
-        COMMAND_ID=$(aws ssm send-command \
-          --region eu-north-1 \
-          --instance-ids "i-0fc77e77e0999cbb9" \
-          --document-name "AWS-RunShellScript" \
-          --comment "Deploy ClimaScope AI from GitHub main" \
-          --parameters 'commands=[
+        cat > /tmp/deploy-commands.json <<'JSON'
+        {
+          "commands": [
             "set -eu",
-            "export DEBIAN_FRONTEND=noninteractive",
             "sudo apt-get update",
             "sudo apt-get install -y git python3-venv python3-pip",
             "sudo mkdir -p /opt/climascope-ai",
@@ -45,53 +39,74 @@ phases:
             "python3 -m venv /opt/climascope-ai/.venv",
             "/opt/climascope-ai/.venv/bin/python -m pip install --upgrade pip",
             "/opt/climascope-ai/.venv/bin/pip install -r /opt/climascope-ai/requirements.txt",
-            "sudo tee /etc/systemd/system/climascope.service > /dev/null <<EOF\n[Unit]\nDescription=ClimaScope AI FastAPI application\nAfter=network.target\n\n[Service]\nUser=ubuntu\nWorkingDirectory=/opt/climascope-ai\nEnvironmentFile=/opt/climascope-ai/.env\nExecStart=/opt/climascope-ai/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000\nRestart=always\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\nEOF",
+            "printf '%s\\n' '[Unit]' 'Description=ClimaScope AI FastAPI application' 'After=network.target' '' '[Service]' 'User=ubuntu' 'WorkingDirectory=/opt/climascope-ai' 'EnvironmentFile=/opt/climascope-ai/.env' 'ExecStart=/opt/climascope-ai/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000' 'Restart=always' 'RestartSec=5' '' '[Install]' 'WantedBy=multi-user.target' | sudo tee /etc/systemd/system/climascope.service > /dev/null",
             "sudo systemctl daemon-reload",
             "sudo systemctl enable climascope",
             "sudo systemctl restart climascope",
             "sleep 5",
             "sudo systemctl is-active --quiet climascope",
-            "curl --fail --silent http://127.0.0.1:8000/health"
-          ]' \
-          --query 'Command.CommandId' \
+            "curl --fail --silent --show-error http://127.0.0.1:8000/health"
+          ]
+        }
+        JSON
+
+      - |
+        COMMAND_ID=$(aws ssm send-command \
+          --region "$AWS_DEFAULT_REGION" \
+          --instance-ids "$EC2_INSTANCE_ID" \
+          --document-name "AWS-RunShellScript" \
+          --parameters file:///tmp/deploy-commands.json \
+          --query "Command.CommandId" \
           --output text)
 
-        echo "SSM command ID: ${COMMAND_ID}"
-        echo "Waiting for deployment on EC2..."
+        test -n "$COMMAND_ID"
+        test "$COMMAND_ID" != "None"
+
+        echo "SSM Command ID: $COMMAND_ID"
+        printf '%s' "$COMMAND_ID" > /tmp/ssm-command-id
+
+  post_build:
+    commands:
+      - |
+        COMMAND_ID=$(cat /tmp/ssm-command-id)
+        STATUS="Pending"
 
         for attempt in $(seq 1 60); do
-          STATUS=$(aws ssm get-command-invocation \
-            --region eu-north-1 \
+          RESULT=$(aws ssm get-command-invocation \
+            --region "$AWS_DEFAULT_REGION" \
             --command-id "$COMMAND_ID" \
-            --instance-id "i-0fc77e77e0999cbb9" \
-            --query 'Status' \
-            --output text 2>/dev/null || true)
+            --instance-id "$EC2_INSTANCE_ID" \
+            --output json 2>/dev/null || true)
 
-          case "$STATUS" in
-            Success)
-              echo "Deployment succeeded."
-              aws ssm get-command-invocation \
-                --region eu-north-1 \
-                --command-id "$COMMAND_ID" \
-                --instance-id "i-0fc77e77e0999cbb9" \
-                --query 'StandardOutputContent' \
-                --output text
-              exit 0
-              ;;
-            Failed|Cancelled|TimedOut|Cancelling)
-              echo "Deployment failed with status: $STATUS"
-              aws ssm get-command-invocation \
-                --region eu-north-1 \
-                --command-id "$COMMAND_ID" \
-                --instance-id "i-0fc77e77e0999cbb9" \
-                --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' \
-                --output json
-              exit 1
-              ;;
-          esac
+          STATUS=$(printf '%s' "$RESULT" | python -c \
+            'import json,sys; print(json.load(sys.stdin).get("Status","Pending"))' \
+            2>/dev/null || echo "Pending")
+
+          echo "Deployment status: $STATUS"
+
+          if [ "$STATUS" = "Success" ]; then
+            printf '%s' "$RESULT" | python -c \
+              'import json,sys; print(json.load(sys.stdin).get("StandardOutputContent",""))'
+            echo "Deployment succeeded."
+            exit 0
+          fi
+
+          if [ "$STATUS" = "Failed" ] || \
+             [ "$STATUS" = "Cancelled" ] || \
+             [ "$STATUS" = "TimedOut" ]; then
+            printf '%s' "$RESULT" | python -c \
+              'import json,sys; d=json.load(sys.stdin); print("STDOUT:\\n"+d.get("StandardOutputContent","")); print("STDERR:\\n"+d.get("StandardErrorContent",""))'
+            echo "Deployment failed."
+            exit 1
+          fi
 
           sleep 5
         done
 
-        echo "Timed out waiting for deployment. Check Systems Manager Run Command in AWS."
+        echo "Timed out waiting for deployment."
         exit 1
+
+artifacts:
+  files:
+    - "**/*"
+  discard-paths: no
