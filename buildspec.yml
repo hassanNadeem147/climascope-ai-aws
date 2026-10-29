@@ -1,0 +1,22 @@
+version: 0.2
+
+phases:
+install:
+runtime-versions:
+python: 3.12
+commands:
+- python --version
+- python -m pip install --upgrade pip
+
+pre_build:
+commands:
+- echo "Checking Python dependency installation"
+
+build:
+commands:
+- python -m pip install -r requirements.txt
+- python -m compileall -q app
+
+post_build:
+commands:
+- echo "Build validation completed"
