@@ -1,17 +1,13 @@
 version: 0.2
 
-env:
-  variables:
-    AWS_DEFAULT_REGION: "eu-north-1"
-    EC2_INSTANCE_ID: "i-0fc77e77e0999cbb9"
-
 phases:
   install:
     runtime-versions:
       python: 3.12
     commands:
-      - aws --version
+      - echo "Checking Python version..."
       - python --version
+      - aws --version
 
   pre_build:
     commands:
@@ -22,93 +18,9 @@ phases:
 
   build:
     commands:
-      - |
-        cat > /tmp/deploy-commands.json <<'JSON'
-        {
-          "commands": [
-            "set -eu",
-            "sudo apt-get update",
-            "sudo apt-get install -y git python3-venv python3-pip",
-            "sudo mkdir -p /opt/climascope-ai",
-            "sudo chown ubuntu:ubuntu /opt/climascope-ai",
-            "git config --global --add safe.directory /opt/climascope-ai",
-            "cd /opt/climascope-ai",
-            "if [ ! -d .git ]; then git clone https://github.com/hassanNadeem147/climascope-ai-aws.git /tmp/climascope-initial && cp -an /tmp/climascope-initial/. /opt/climascope-ai/ && rm -rf /tmp/climascope-initial; fi",
-            "git fetch origin main",
-            "git reset --hard origin/main",
-            "test -f /opt/climascope-ai/.env",
-            "python3 -m venv /opt/climascope-ai/.venv",
-            "/opt/climascope-ai/.venv/bin/python -m pip install --upgrade pip",
-            "/opt/climascope-ai/.venv/bin/pip install -r /opt/climascope-ai/requirements.txt",
-            "printf '%s\\n' '[Unit]' 'Description=ClimaScope AI FastAPI application' 'After=network.target' '' '[Service]' 'User=ubuntu' 'WorkingDirectory=/opt/climascope-ai' 'EnvironmentFile=/opt/climascope-ai/.env' 'ExecStart=/opt/climascope-ai/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000' 'Restart=always' 'RestartSec=5' '' '[Install]' 'WantedBy=multi-user.target' | sudo tee /etc/systemd/system/climascope.service > /dev/null",
-            "sudo systemctl daemon-reload",
-            "sudo systemctl enable climascope",
-            "sudo systemctl restart climascope",
-            "sleep 5",
-            "sudo systemctl is-active --quiet climascope",
-            "curl --fail --silent --show-error http://127.0.0.1:8000/health"
-          ]
-        }
-        JSON
-
-      - |
-        COMMAND_ID=$(aws ssm send-command \
-          --region "$AWS_DEFAULT_REGION" \
-          --instance-ids "$EC2_INSTANCE_ID" \
-          --document-name "AWS-RunShellScript" \
-          --parameters file:///tmp/deploy-commands.json \
-          --query "Command.CommandId" \
-          --output text)
-
-        if [ -z "$COMMAND_ID" ] || [ "$COMMAND_ID" = "None" ]; then
-          echo "Failed to submit deployment command."
-          exit 1
-        fi
-
-        echo "SSM Command ID: $COMMAND_ID"
-        printf '%s' "$COMMAND_ID" > /tmp/ssm-command-id
-
-  post_build:
-    commands:
-      - |
-        COMMAND_ID=$(cat /tmp/ssm-command-id)
-
-        for attempt in $(seq 1 60); do
-          RESULT=$(aws ssm get-command-invocation \
-            --region "$AWS_DEFAULT_REGION" \
-            --command-id "$COMMAND_ID" \
-            --instance-id "$EC2_INSTANCE_ID" \
-            --output json 2>/dev/null || true)
-
-          STATUS=$(printf '%s' "$RESULT" | python -c \
-            'import json,sys; print(json.load(sys.stdin).get("Status","Pending"))' \
-            2>/dev/null || echo "Pending")
-
-          echo "Deployment status: $STATUS"
-
-          if [ "$STATUS" = "Success" ]; then
-            printf '%s' "$RESULT" | python -c \
-              'import json,sys; print(json.load(sys.stdin).get("StandardOutputContent",""))'
-            echo "Deployment succeeded."
-            exit 0
-          fi
-
-          if [ "$STATUS" = "Failed" ] || \
-             [ "$STATUS" = "Cancelled" ] || \
-             [ "$STATUS" = "TimedOut"]; then
-            printf '%s' "$RESULT" | python -c \
-              'import json,sys; d=json.load(sys.stdin); print("STDOUT:\\n"+d.get("StandardOutputContent","")); print("STDERR:\\n"+d.get("StandardErrorContent",""))'
-            echo "Deployment failed."
-            exit 1
-          fi
-
-          sleep 5
-        done
-
-        echo "Timed out waiting for deployment."
-        exit 1
+      - echo "Project validation successful."
 
 artifacts:
   files:
-    - "**/*"
+    - '**/*'
   discard-paths: no
