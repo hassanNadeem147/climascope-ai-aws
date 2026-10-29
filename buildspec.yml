@@ -1,10 +1,16 @@
 
 version: 0.2
 
+env:
+  shell: bash
+
 phases:
   install:
     runtime-versions:
       python: 3.12
+    commands:
+      - python --version
+      - python -m pip install --upgrade pip
 
   build:
     commands:
@@ -14,4 +20,78 @@ phases:
 
   post_build:
     commands:
-      - echo "Deployment steps will be enabled after EC2 setup"
+      - |
+        set -euo pipefail
+
+        echo "Starting ClimaScope AI deployment through SSM"
+
+        COMMAND_ID=$(aws ssm send-command \
+          --region eu-north-1 \
+          --instance-ids "i-0fc77e77e0999cbb9" \
+          --document-name "AWS-RunShellScript" \
+          --comment "Deploy ClimaScope AI from GitHub main" \
+          --parameters 'commands=[
+            "set -eu",
+            "export DEBIAN_FRONTEND=noninteractive",
+            "sudo apt-get update",
+            "sudo apt-get install -y git python3-venv python3-pip",
+            "sudo mkdir -p /opt/climascope-ai",
+            "sudo chown ubuntu:ubuntu /opt/climascope-ai",
+            "cd /opt/climascope-ai",
+            "if [ ! -d .git ]; then git clone https://github.com/hassanNadeem147/climascope-ai-aws.git /tmp/climascope-initial; cp -an /tmp/climascope-initial/. /opt/climascope-ai/; rm -rf /tmp/climascope-initial; fi",
+            "git fetch origin main",
+            "git reset --hard origin/main",
+            "test -f /opt/climascope-ai/.env",
+            "python3 -m venv /opt/climascope-ai/.venv",
+            "/opt/climascope-ai/.venv/bin/python -m pip install --upgrade pip",
+            "/opt/climascope-ai/.venv/bin/pip install -r /opt/climascope-ai/requirements.txt",
+            "sudo tee /etc/systemd/system/climascope.service > /dev/null <<EOF\n[Unit]\nDescription=ClimaScope AI FastAPI application\nAfter=network.target\n\n[Service]\nUser=ubuntu\nWorkingDirectory=/opt/climascope-ai\nEnvironmentFile=/opt/climascope-ai/.env\nExecStart=/opt/climascope-ai/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000\nRestart=always\nRestartSec=5\n\n[Install]\nWantedBy=multi-user.target\nEOF",
+            "sudo systemctl daemon-reload",
+            "sudo systemctl enable climascope",
+            "sudo systemctl restart climascope",
+            "sleep 5",
+            "sudo systemctl is-active --quiet climascope",
+            "curl --fail --silent http://127.0.0.1:8000/health"
+          ]' \
+          --query 'Command.CommandId' \
+          --output text)
+
+        echo "SSM command ID: ${COMMAND_ID}"
+        echo "Waiting for deployment on EC2..."
+
+        for attempt in $(seq 1 60); do
+          STATUS=$(aws ssm get-command-invocation \
+            --region eu-north-1 \
+            --command-id "$COMMAND_ID" \
+            --instance-id "i-0fc77e77e0999cbb9" \
+            --query 'Status' \
+            --output text 2>/dev/null || true)
+
+          case "$STATUS" in
+            Success)
+              echo "Deployment succeeded."
+              aws ssm get-command-invocation \
+                --region eu-north-1 \
+                --command-id "$COMMAND_ID" \
+                --instance-id "i-0fc77e77e0999cbb9" \
+                --query 'StandardOutputContent' \
+                --output text
+              exit 0
+              ;;
+            Failed|Cancelled|TimedOut|Cancelling)
+              echo "Deployment failed with status: $STATUS"
+              aws ssm get-command-invocation \
+                --region eu-north-1 \
+                --command-id "$COMMAND_ID" \
+                --instance-id "i-0fc77e77e0999cbb9" \
+                --query '{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}' \
+                --output json
+              exit 1
+              ;;
+          esac
+
+          sleep 5
+        done
+
+        echo "Timed out waiting for deployment. Check Systems Manager Run Command in AWS."
+        exit 1
