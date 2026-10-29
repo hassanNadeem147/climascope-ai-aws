@@ -5,15 +5,13 @@ phases:
   install:
     runtime-versions:
       python: 3.12
-    commands:
-      - python --version
-      - python -m pip install --upgrade pip
 
   build:
     commands:
+      - echo "Validating dependencies and Python syntax"
       - python -m pip install -r requirements.txt
       - python -m compileall -q app
 
   post_build:
     commands:
-      - echo "Build validation completed"
+      - echo "Deployment steps will be enabled after EC2 setup"
