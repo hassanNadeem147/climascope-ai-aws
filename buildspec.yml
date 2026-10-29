@@ -31,8 +31,9 @@ phases:
             "sudo apt-get install -y git python3-venv python3-pip",
             "sudo mkdir -p /opt/climascope-ai",
             "sudo chown ubuntu:ubuntu /opt/climascope-ai",
+            "git config --global --add safe.directory /opt/climascope-ai",
             "cd /opt/climascope-ai",
-            "if [ ! -d .git ]; then git clone https://github.com/hassanNadeem147/climascope-ai-aws.git /tmp/climascope-initial; cp -an /tmp/climascope-initial/. /opt/climascope-ai/; rm -rf /tmp/climascope-initial; fi",
+            "if [ ! -d .git ]; then git clone https://github.com/hassanNadeem147/climascope-ai-aws.git /tmp/climascope-initial && cp -an /tmp/climascope-initial/. /opt/climascope-ai/ && rm -rf /tmp/climascope-initial; fi",
             "git fetch origin main",
             "git reset --hard origin/main",
             "test -f /opt/climascope-ai/.env",
@@ -59,8 +60,10 @@ phases:
           --query "Command.CommandId" \
           --output text)
 
-        test -n "$COMMAND_ID"
-        test "$COMMAND_ID" != "None"
+        if [ -z "$COMMAND_ID" ] || [ "$COMMAND_ID" = "None" ]; then
+          echo "Failed to submit deployment command."
+          exit 1
+        fi
 
         echo "SSM Command ID: $COMMAND_ID"
         printf '%s' "$COMMAND_ID" > /tmp/ssm-command-id
@@ -69,7 +72,6 @@ phases:
     commands:
       - |
         COMMAND_ID=$(cat /tmp/ssm-command-id)
-        STATUS="Pending"
 
         for attempt in $(seq 1 60); do
           RESULT=$(aws ssm get-command-invocation \
@@ -93,7 +95,7 @@ phases:
 
           if [ "$STATUS" = "Failed" ] || \
              [ "$STATUS" = "Cancelled" ] || \
-             [ "$STATUS" = "TimedOut" ]; then
+             [ "$STATUS" = "TimedOut"]; then
             printf '%s' "$RESULT" | python -c \
               'import json,sys; d=json.load(sys.stdin); print("STDOUT:\\n"+d.get("StandardOutputContent","")); print("STDERR:\\n"+d.get("StandardErrorContent",""))'
             echo "Deployment failed."
